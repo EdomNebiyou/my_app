@@ -45,7 +45,7 @@ jobs:
 
             # 2. Check if the project directory exists
             if [ ! -d "/var/www/my_app" ]; then
-              git clone https://github.com my_app
+              git clone https://github.com/EdomNebiyou/my_app my_app
               cd my_app
             else
               cd my_app
