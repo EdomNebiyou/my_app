@@ -1,0 +1,70 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Build frontend
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      # Build backend
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      # Deploy to EC2
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Check if directory exists, if not clone directly as my_app
+            if [ ! -d "/var/www/my_app" ]; then
+              cd /var/www
+              git clone https://github.com my_app
+              cd my_app
+            else
+              cd /var/www/my_app
+              git pull origin main
+            fi
+
+            # Backend deployment
+            cd backend
+            npm ci
+            
+            # Safely build the .env file line by line
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" > .env
+            echo "JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN }}" >> .env
+            echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
+            echo "PORT=${{ secrets.PORT }}" >> .env
+            
+            # Restart or start the backend process
+            pm2 restart backend || pm2 start server.js --name backend
+
+            # Frontend deployment
+            cd ../frontend
+            npm ci
+            npm run build
+            
+            # Restart Nginx to ensure it picks up any configuration modifications
+            sudo systemctl restart nginx
