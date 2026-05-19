@@ -38,33 +38,38 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Check if directory exists, if not clone directly as my_app
+            # 1. Fix permissions using sudo so ec2-user can write here
+            sudo mkdir -p /var/www
+            sudo chown -R ec2-user:ec2-user /var/www
+            cd /var/www
+
+            # 2. Check if the project directory exists
             if [ ! -d "/var/www/my_app" ]; then
-              cd /var/www
               git clone https://github.com my_app
               cd my_app
             else
-              cd /var/www/my_app
+              cd my_app
               git pull origin main
             fi
 
-            # Backend deployment
+            # 3. Backend deployment
             cd backend
-            npm ci
+            # Use 'npm install' instead of 'npm ci' if package-lock.json doesn't exist
+            npm install
             
-            # Safely build the .env file line by line
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" > .env
             echo "JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN }}" >> .env
             echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
             echo "PORT=${{ secrets.PORT }}" >> .env
             
-            # Restart or start the backend process
             pm2 restart backend || pm2 start server.js --name backend
 
-            # Frontend deployment
+            # 4. Frontend deployment
             cd ../frontend
-            npm ci
+            npm install
             npm run build
             
-            # Restart Nginx to ensure it picks up any configuration modifications
+            # Make sure Nginx has read access to the newly built files
+            sudo chown -R ec2-user:nginx /var/www/my_app
+            sudo chmod -R 755 /var/www/my_app
             sudo systemctl restart nginx
