@@ -49,7 +49,8 @@ jobs:
               cd my_app
             else
               cd my_app
-              git pull origin main
+              git fetch --all
+              git reset --hard origin/main
             fi
 
             # 3. Backend deployment
