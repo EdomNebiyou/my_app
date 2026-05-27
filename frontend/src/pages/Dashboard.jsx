@@ -89,7 +89,7 @@ function Dashboard() {
         <div className="flex items-center justify-between mb-10">
           <div>
             <h1 className="text-4xl font-bold">
-              TaskFlow 🚀
+              TaskFlow over🚀
             </h1>
 
             <p className="text-zinc-400 mt-2">
